@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Stundenplan 11BGUTI</string>
+    <string name="title_activity_main">Stundenplan 11BGUTI</string>
+    <string name="package_name">de.freddy.stundenplan11bguti</string>
+    <string name="custom_url_scheme">de.freddy.stundenplan11bguti</string>
+</resources>
