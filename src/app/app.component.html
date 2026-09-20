@@ -240,7 +240,7 @@
           <button class="settings-nav-btn" [class.active]="settingsCategory === 'faecher'" (click)="setSettingsCategory('faecher')">Fächer verwalten</button>
           <button class="settings-nav-btn" [class.active]="settingsCategory === 'darstellung'" (click)="setSettingsCategory('darstellung')">Darstellung</button>
           <button class="settings-nav-btn" [class.active]="settingsCategory === 'daten'" (click)="setSettingsCategory('daten')">Daten</button>
-          <button class="settings-nav-btn" *ngIf="isPackagedApp" [class.active]="settingsCategory === 'update'" (click)="setSettingsCategory('update')">Update</button>
+          <button class="settings-nav-btn" [class.active]="settingsCategory === 'update'" (click)="setSettingsCategory('update')">Update</button>
         </div>
 
         <div class="settings-content">
@@ -375,7 +375,7 @@
             </div>
           </div>
 
-          <div *ngIf="settingsCategory === 'update' && isPackagedApp">
+          <div *ngIf="settingsCategory === 'update'">
             <div class="settings-section">
               <span class="profile-label">App-Update</span>
               <p class="update-status">{{ updateService.statusMessage || 'Noch nicht geprüft.' }}</p>
