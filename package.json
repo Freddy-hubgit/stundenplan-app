@@ -30,7 +30,7 @@
     "build": "npm run write-version && ng build --configuration production --base-href ./",
     "build:pages": "npm run write-version && ng build --configuration production --base-href /stundenplan-11bguti/",
     "electron": "npm run build && electron .",
-    "dist:win": "npm run build && electron-builder --win nsis portable",
+    "dist:win": "npm run build && electron-builder --win nsis portable --publish=never"
     "cap:sync": "npm run build && cap sync android",
     "dist:android": "npm run cap:sync && cd android && .\\gradlew.bat assembleRelease"
   },
