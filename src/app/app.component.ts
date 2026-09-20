@@ -1,7 +1,6 @@
 import { Component, OnInit, OnDestroy, HostListener, ViewEncapsulation, ViewChild, ElementRef } from '@angular/core';
 import html2canvas from 'html2canvas';
 import { UpdateService } from './update.service'; // Pfad ggf. an deine tatsächliche Ordnerstruktur anpassen
-import { Capacitor } from '@capacitor/core';
 
 /* =====================================================================
    TYPEN
@@ -90,12 +89,6 @@ export class AppComponent implements OnInit, OnDestroy {
   @ViewChild('boardRef') boardRef?: ElementRef<HTMLElement>;
 
   constructor(public updateService: UpdateService) {}
-
-  // true in der Windows-App (Electron, via preload.js) und in der Android-App
-  // (Capacitor), false im reinen Browser auf der Webseite.
-  get isPackagedApp(): boolean {
-    return !!(window as any).stundenplanDesktop || Capacitor.isNativePlatform();
-  }
 
   /* ---------------- KONFIGURATION – hier trägst du deine echten Daten ein ---------------- */
 
