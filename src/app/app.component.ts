@@ -1,5 +1,7 @@
-import { Component, OnInit, OnDestroy, HostListener, ViewEncapsulation } from '@angular/core';
-import { UpdateService } from './update.service';
+import { Component, OnInit, OnDestroy, HostListener, ViewEncapsulation, ViewChild, ElementRef } from '@angular/core';
+import html2canvas from 'html2canvas';
+import { UpdateService } from './update.service'; // Pfad ggf. an deine tatsächliche Ordnerstruktur anpassen
+import { Capacitor } from '@capacitor/core';
 
 /* =====================================================================
    TYPEN
@@ -85,7 +87,15 @@ type EditorMode = "new" | "edit";
 })
 export class AppComponent implements OnInit, OnDestroy {
 
-  constructor(public appUpdate: UpdateService) {}
+  @ViewChild('boardRef') boardRef?: ElementRef<HTMLElement>;
+
+  constructor(public updateService: UpdateService) {}
+
+  // true in der Windows-App (Electron, via preload.js) und in der Android-App
+  // (Capacitor), false im reinen Browser auf der Webseite.
+  get isPackagedApp(): boolean {
+    return !!(window as any).stundenplanDesktop || Capacitor.isNativePlatform();
+  }
 
   /* ---------------- KONFIGURATION – hier trägst du deine echten Daten ein ---------------- */
 
@@ -296,6 +306,11 @@ export class AppComponent implements OnInit, OnDestroy {
   theme: "dark" | "light" = "dark";
   backgroundKey: string = "default";
   settingsOpen: boolean = false;
+  settingsCategory: "profil" | "faecher" | "darstellung" | "daten" | "update" = "profil";
+
+  setSettingsCategory(cat: "profil" | "faecher" | "darstellung" | "daten" | "update"): void {
+    this.settingsCategory = cat;
+  }
   subjectRenameDrafts: Record<string, string> = {};
 
   private loadAppearance(): void {
@@ -397,6 +412,7 @@ export class AppComponent implements OnInit, OnDestroy {
     this.subjectRenameDrafts = {};
     this.uniqueSubjects.forEach(s => { this.subjectRenameDrafts[s] = s; });
     this.expandedSubject = null;
+    this.settingsCategory = "profil";
     this.settingsOpen = true;
   }
 
@@ -407,7 +423,72 @@ export class AppComponent implements OnInit, OnDestroy {
   /* ---------------- Export / Import ---------------- */
 
   exportData(): void {
-    const payload = {
+    const blob = new Blob([JSON.stringify(this.buildExportPayload(), null, 2)], { type: "application/json" });
+    this.downloadBlob(blob, "stundenplan-export.json");
+  }
+
+  async exportImage(): Promise<void> {
+    const el = this.boardRef?.nativeElement;
+    if (!el) return;
+    const bgColor = getComputedStyle(document.querySelector(".app-shell") || document.body).backgroundColor || "#0A0D12";
+    const canvas = await html2canvas(el, { backgroundColor: bgColor, scale: 2 });
+    const a = document.createElement("a");
+    a.href = canvas.toDataURL("image/jpeg", 0.92);
+    a.download = "stundenplan.jpg";
+    a.click();
+  }
+
+  exportICS(): void {
+    const dayCode: Record<DayKey, string> = { Mon: "MO", Tue: "TU", Wed: "WE", Thu: "TH", Fri: "FR", Sat: "SA", Sun: "SU" };
+    const now = new Date();
+    const lines: string[] = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Stundenplan//DE"];
+
+    this.lessons
+      .filter(l => this.isLessonVisible(l) && !l.cancelled)
+      .forEach((l, i) => {
+        const def = this.dayDefs.find(d => d.key === l.day);
+        if (!def) return;
+        const firstDate = this.nextDateForWeekday(def.jsIdx);
+        lines.push(
+          "BEGIN:VEVENT",
+          `UID:stundenplan-${i}-${now.getTime()}@lessons`,
+          `DTSTAMP:${this.icsDateTime(now, this.fmtHM(now))}`,
+          `DTSTART:${this.icsDateTime(firstDate, l.start)}`,
+          `DTEND:${this.icsDateTime(firstDate, l.end)}`,
+          `RRULE:FREQ=WEEKLY;BYDAY=${dayCode[l.day]}`,
+          `SUMMARY:${this.icsEscape(l.subject)}`,
+          `LOCATION:${this.icsEscape(l.room)}`,
+          `DESCRIPTION:${this.icsEscape(l.teacher)}`,
+          "END:VEVENT"
+        );
+      });
+
+    lines.push("END:VCALENDAR");
+    const blob = new Blob([lines.join("\r\n")], { type: "text/calendar" });
+    this.downloadBlob(blob, "stundenplan.ics");
+  }
+
+  private nextDateForWeekday(jsIdx: number): Date {
+    const d = new Date();
+    const diff = (jsIdx - d.getDay() + 7) % 7;
+    d.setDate(d.getDate() + diff);
+    return d;
+  }
+
+  private icsDateTime(date: Date, hhmm: string): string {
+    const [h, m] = hhmm.split(":").map(Number);
+    const y = date.getFullYear();
+    const mo = String(date.getMonth() + 1).padStart(2, "0");
+    const da = String(date.getDate()).padStart(2, "0");
+    return `${y}${mo}${da}T${String(h).padStart(2, "0")}${String(m).padStart(2, "0")}00`;
+  }
+
+  private icsEscape(text: string): string {
+    return (text || "").replace(/[\\,;]/g, m => "\\" + m).replace(/\n/g, "\\n");
+  }
+
+  private buildExportPayload(): object {
+    return {
       exportedAt: new Date().toISOString(),
       lessons: this.lessons,
       subjectColorOverrides: this.subjectColorOverrides,
@@ -421,11 +502,13 @@ export class AppComponent implements OnInit, OnDestroy {
         background: this.backgroundKey,
       },
     };
-    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+  }
+
+  private downloadBlob(blob: Blob, filename: string): void {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "stundenplan-export.json";
+    a.download = filename;
     a.click();
     URL.revokeObjectURL(url);
   }
@@ -437,54 +520,67 @@ export class AppComponent implements OnInit, OnDestroy {
 
     const reader = new FileReader();
     reader.onload = () => {
-      try {
-        const data = JSON.parse(String(reader.result));
-        if (!data || !Array.isArray(data.lessons)) {
-          throw new Error("Kein gültiges Export-Format");
-        }
-
-        const confirmed = window.confirm(
-          `Import durchführen? ${data.lessons.length} Stunden werden geladen und ersetzen den aktuellen Stundenplan.`
-        );
-        if (!confirmed) return;
-
-        this.lessons = data.lessons;
-
-        if (data.subjectColorOverrides && typeof data.subjectColorOverrides === "object") {
-          this.subjectColorOverrides = data.subjectColorOverrides;
-          this.persistSubjectColors();
-        }
-        if (data.profile) {
-          if (data.profile.track === "Informatik" || data.profile.track === "Umwelttechnik") {
-            this.selectedTrack = data.profile.track;
-          }
-          if (Array.isArray(data.profile.sciences)) {
-            this.selectedSciences = data.profile.sciences;
-          }
-          if (data.profile.language === "Spanisch" || data.profile.language === "Frei") {
-            this.selectedLanguage = data.profile.language;
-          }
-          this.enforceCompulsoryScience();
-          this.persistProfile();
-        }
-        if (data.appearance) {
-          if (data.appearance.theme === "dark" || data.appearance.theme === "light") {
-            this.theme = data.appearance.theme;
-          }
-          if (typeof data.appearance.background === "string") {
-            this.backgroundKey = data.appearance.background;
-          }
-          this.persistAppearance();
-        }
-
-        window.alert("Import erfolgreich.");
-      } catch {
-        window.alert("Die Datei konnte nicht gelesen werden. Bitte eine gültige Export-Datei auswählen.");
-      } finally {
-        input.value = "";
-      }
+      this.applyImportedJson(String(reader.result));
+      input.value = "";
     };
     reader.readAsText(file);
+  }
+
+  // Alternative zum Datei-Upload: JSON-Text direkt einfügen (z.B. per Zwischenablage
+  // zwischen zwei Geräten kopiert, ohne die Datei erst abspeichern zu müssen).
+  importPasteText: string = "";
+
+  importFromPastedText(): void {
+    if (!this.importPasteText.trim()) return;
+    this.applyImportedJson(this.importPasteText);
+    this.importPasteText = "";
+  }
+
+  private applyImportedJson(raw: string): void {
+    try {
+      const data = JSON.parse(raw);
+      if (!data || !Array.isArray(data.lessons)) {
+        throw new Error("Kein gültiges Export-Format");
+      }
+
+      const confirmed = window.confirm(
+        `Import durchführen? ${data.lessons.length} Stunden werden geladen und ersetzen den aktuellen Stundenplan.`
+      );
+      if (!confirmed) return;
+
+      this.lessons = data.lessons;
+
+      if (data.subjectColorOverrides && typeof data.subjectColorOverrides === "object") {
+        this.subjectColorOverrides = data.subjectColorOverrides;
+        this.persistSubjectColors();
+      }
+      if (data.profile) {
+        if (data.profile.track === "Informatik" || data.profile.track === "Umwelttechnik") {
+          this.selectedTrack = data.profile.track;
+        }
+        if (Array.isArray(data.profile.sciences)) {
+          this.selectedSciences = data.profile.sciences;
+        }
+        if (data.profile.language === "Spanisch" || data.profile.language === "Frei") {
+          this.selectedLanguage = data.profile.language;
+        }
+        this.enforceCompulsoryScience();
+        this.persistProfile();
+      }
+      if (data.appearance) {
+        if (data.appearance.theme === "dark" || data.appearance.theme === "light") {
+          this.theme = data.appearance.theme;
+        }
+        if (typeof data.appearance.background === "string") {
+          this.backgroundKey = data.appearance.background;
+        }
+        this.persistAppearance();
+      }
+
+      window.alert("Import erfolgreich.");
+    } catch {
+      window.alert("Die Daten konnten nicht gelesen werden. Bitte eine gültige Export-Datei bzw. einen gültigen Export-Text verwenden.");
+    }
   }
 
   setTrack(track: DayTrack): void {
@@ -579,7 +675,6 @@ export class AppComponent implements OnInit, OnDestroy {
     this.timerId = setInterval(() => {
       this.now = new Date();
     }, 1000);
-    this.appUpdate.check();
   }
 
   ngOnDestroy(): void {

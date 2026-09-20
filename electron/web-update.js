@@ -13,7 +13,7 @@ async function readJson(url, headers) {
 
 async function getRemoteCommit() {
   try {
-    const version = await readJson(WEB_BASE + "/version.json?t=" + Date.now());
+    const version = await readJson(WEB_BASE + "/assets/version.json?t=" + Date.now());
     if (version && version.commit) return String(version.commit);
   } catch (_) {
     /* Pages hat noch keine version.json – GitHub-Commit nehmen */
