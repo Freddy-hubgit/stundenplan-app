@@ -1,6 +1,6 @@
 const { app, BrowserWindow, shell, ipcMain, Notification, Tray, Menu, nativeImage } = require("electron");
 const path = require("path");
-const { installNativeNotifications } = require("./native-notifications");
+const { installNativeNotifications,trustedFrame } = require("./native-notifications");
 const { getRemoteCommit, liveUrl, POLL_MS } = require("./web-update");
 
 let mainWindow = null;
@@ -70,6 +70,11 @@ function createWindow() {
     if (mainWindow === win) mainWindow = null;
   });
 }
+
+ipcMain.handle('stundenplan:app-version', event => {
+  if (!trustedFrame(event, mainWindow, localIndex())) throw new Error('Nicht erlaubter App-Aufruf.');
+  return app.getVersion();
+});
 
 ipcMain.handle("stundenplan:check-update", async (_event, options) => {
   if (!mainWindow) return { error: "Kein App-Fenster geöffnet." };

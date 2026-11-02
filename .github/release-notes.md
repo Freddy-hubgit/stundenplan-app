@@ -1,5 +1,6 @@
-# Windows-Version 1.1.0
+# Windows-Version 1.1.1
 
+- Meldet die installierte Programmversion an die Updateprüfung. Die aktuelle Weboberfläche prüft Webupdates und veröffentlichte Windows-Installer getrennt.
 - Hausaufgaben-Erinnerungen direkt in der App aktivieren, ohne Web-Push-Dienst oder Browser-Registrierung.
 - Optionale Windows-Benachrichtigungen für neue Krankmeldungen und Unterrichtsänderungen.
 - Bei aktivierten Benachrichtigungen bleibt die App beim Schließen des Fensters im Infobereich aktiv. Über das Symbol kann sie geöffnet oder vollständig beendet werden.

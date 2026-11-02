@@ -12,5 +12,6 @@ contextBridge.exposeInMainWorld("stundenplanDesktop", {
       return () => ipcRenderer.removeListener('stundenplan:notification-open', handler);
     }
   },
+  getAppVersion: () => ipcRenderer.invoke('stundenplan:app-version'),
   checkUpdate: (options) => ipcRenderer.invoke("stundenplan:check-update", options),
 });

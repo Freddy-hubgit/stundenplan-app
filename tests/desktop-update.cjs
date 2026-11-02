@@ -17,10 +17,10 @@ async function scenario({ offline = false, navigationFails = false, background =
   }
   const ctx = { require: name => {
     if (name === 'electron') return {
-      app: { setAppUserModelId: () => {}, requestSingleInstanceLock: () => true, whenReady: () => ({ then: fn => ready.push(fn) }), on: (name,fn) => {appEvents[name]=fn;} },
+      app: { getVersion:()=> '1.1.1', setAppUserModelId: () => {}, requestSingleInstanceLock: () => true, whenReady: () => ({ then: fn => ready.push(fn) }), on: (name,fn) => {appEvents[name]=fn;} },
       BrowserWindow, shell: {}, ipcMain: { handle: (name, fn) => { handlers[name] = fn; } }
     };
-    if (name === './native-notifications') return { installNativeNotifications: () => ({keepRunning:()=>background}) };
+    if (name === './native-notifications') return { trustedFrame:()=>true, installNativeNotifications: () => ({keepRunning:()=>background}) };
     if (name === './web-update') return {
       getRemoteCommit: async () => { if (remoteFails) throw Error('offline'); return commit; },
       liveUrl: sha => 'https://example.test/?v=' + sha, POLL_MS: 300000
@@ -30,12 +30,12 @@ async function scenario({ offline = false, navigationFails = false, background =
   vm.runInNewContext(fs.readFileSync('electron/main.js', 'utf8'), ctx);
   ready[0]();
   await new Promise(resolve => setImmediate(resolve));
-  return { window: windows[0], check: options => handlers['stundenplan:check-update']({}, options),
+  return { window: windows[0], appVersion:()=>handlers['stundenplan:app-version']({}), check: options => handlers['stundenplan:check-update']({}, options),
     recover: () => { remoteFails = false; loadFails = false; }, close:()=>{let prevented=false;windows[0].events.close({preventDefault:()=>prevented=true});return prevented;},quit:()=>appEvents['before-quit']() };
 }
 (async () => {
   const offline = await scenario({ offline: true });
-  assert.equal(offline.window.files, 1);
+  assert.equal(offline.window.files, 1);assert.equal(offline.appVersion(),'1.1.1');
   assert.ok((await offline.check({ checkOnly: true })).error);
   offline.recover();
   assert.equal((await offline.check({ checkOnly: true })).available, true);
