@@ -46,6 +46,11 @@ jobs:
           $assets = @(Get-ChildItem release/*.exe | ForEach-Object { $_.FullName })
           if ($assets.Count -ne 2) { throw "Installer und portable EXE werden benötigt." }
           if (!(Test-Path release/latest.yml)) { throw "Update-Metadaten fehlen." }
+          $metadata = Get-Content release/latest.yml -Raw
+          if ($metadata -notmatch '(?m)^path: (.+)\r?$') { throw "Installerpfad fehlt in latest.yml." }
+          $installer = $Matches[1].Trim()
+          if (!(Test-Path (Join-Path release $installer))) { throw "Installername stimmt nicht mit Update-Metadaten überein." }
+          if ($installer -notmatch '^[A-Za-z0-9._-]+$') { throw "Installername muss für GitHub-Downloads unverändert bleiben." }
           $assets += @(Get-ChildItem release/*.blockmap | ForEach-Object { $_.FullName })
           $assets += (Resolve-Path release/latest.yml).Path
           gh release create "v$version" @assets --target "$env:GITHUB_SHA" --title "Stundenplan App $version" --notes-file .github/release-notes.md --latest

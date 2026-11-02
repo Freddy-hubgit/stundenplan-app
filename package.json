@@ -1,6 +1,6 @@
 {
   "name": "stundenplan-app",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "private": true,
   "description": "Stundenplan 11BGUTI – Desktop- und Android-App",
   "author": "Freddy",
@@ -84,7 +84,8 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "Stundenplan 11BGUTI"
+      "shortcutName": "Stundenplan 11BGUTI",
+      "artifactName": "Stundenplan-Setup-${version}.${ext}"
     },
     "publish": [
       {
@@ -92,6 +93,9 @@
         "owner": "Freddy-hubgit",
         "repo": "stundenplan-app"
       }
-    ]
+    ],
+    "portable": {
+      "artifactName": "Stundenplan-Portable-${version}.${ext}"
+    }
   }
 }

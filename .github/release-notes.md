@@ -1,4 +1,4 @@
-# Windows-Version 1.2.0
+# Windows-Version 1.2.1
 
 Programmupdates direkt in der installierten Windows-App: Unter Einstellungen → App-Update auf Updates prüfen, das Programmupdate herunterladen und anschließend „Jetzt installieren und neu starten“ wählen. Vorher offene Änderungen speichern. Die Installation startet erst nach zusätzlicher Bestätigung im Windows-Fenster.
 
