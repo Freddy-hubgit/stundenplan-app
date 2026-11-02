@@ -1,30 +1,20 @@
 const WEB_BASE = "https://Freddy-hubgit.github.io/stundenplan-11bguti";
-const REPO = "Freddy-hubgit/stundenplan-11bguti";
 const POLL_MS = 5 * 60 * 1000;
 
-async function readJson(url, headers) {
-  const res = await fetch(url, {
-    cache: "no-store",
-    headers: headers || {},
-  });
-  if (!res.ok) throw new Error(String(res.status));
-  return res.json();
-}
-
 async function getRemoteCommit() {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 10000);
   try {
-    const version = await readJson(WEB_BASE + "/assets/version.json?t=" + Date.now());
-    if (version && version.commit) return String(version.commit);
-  } catch (_) {
-    /* Pages hat noch keine version.json – GitHub-Commit nehmen */
-  }
-
-  const data = await readJson("https://api.github.com/repos/" + REPO + "/commits/main", {
-    "User-Agent": "stundenplan-app",
-    Accept: "application/vnd.github+json",
-  });
-  if (!data || !data.sha) throw new Error("no sha");
-  return String(data.sha);
+    const res = await fetch(WEB_BASE + "/assets/version.json?t=" + Date.now(), {
+      cache: "no-store", signal: controller.signal,
+    });
+    if (!res.ok) throw new Error(String(res.status));
+    const version = await res.json();
+    if (!version || typeof version.commit !== "string" || !/^[a-f0-9]{7,40}$/i.test(version.commit)) {
+      throw new Error("Ungültige veröffentlichte Version");
+    }
+    return version.commit;
+  } finally { clearTimeout(timer); }
 }
 
 function liveUrl(commit) {

@@ -14,12 +14,14 @@ async function loadBestContent(win, forceReload) {
   try {
     const commit = await getRemoteCommit();
     if (commit && (forceReload || commit !== appliedCommit)) {
-      appliedCommit = commit;
       await win.loadURL(liveUrl(commit));
+      appliedCommit = commit;
       return;
     }
-  } catch (_) {
-    /* offline oder GitHub nicht erreichbar → lokale App */
+  } catch (error) {
+    if (forceReload) throw error;
+    if (!appliedCommit) await win.loadFile(localIndex());
+    return;
   }
 
   if (!win.webContents.getURL()) {
@@ -45,7 +47,8 @@ function createWindow() {
   });
 
   mainWindow = win;
-  loadBestContent(win);
+  appliedCommit = null;
+  void loadBestContent(win);
 
   win.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url);
@@ -57,11 +60,19 @@ function createWindow() {
   });
 }
 
-ipcMain.handle("stundenplan:check-update", async () => {
-  if (!mainWindow) return { updated: false };
-  const before = appliedCommit;
-  await loadBestContent(mainWindow, true);
-  return { updated: !!(appliedCommit && appliedCommit !== before), commit: appliedCommit };
+ipcMain.handle("stundenplan:check-update", async (_event, options) => {
+  if (!mainWindow) return { error: "Kein App-Fenster geöffnet." };
+  try {
+    if (options && options.checkOnly) {
+      const commit = await getRemoteCommit();
+      return { available: commit !== appliedCommit, commit };
+    }
+    const before = appliedCommit;
+    await loadBestContent(mainWindow, true);
+    return { updated: !!(appliedCommit && appliedCommit !== before), commit: appliedCommit };
+  } catch (_) {
+    return { error: "Update konnte nicht geladen werden." };
+  }
 });
 
 app.whenReady().then(() => {

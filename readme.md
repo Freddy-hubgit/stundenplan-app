@@ -50,7 +50,7 @@ Sobald im Repo `Freddy-hubgit/stundenplan-11bguti` ein neuer Commit auf `main` l
 - beim Start
 - wenn die App wieder in den Vordergrund kommt (Android)
 - automatisch etwa alle 5 Minuten
-- manuell unter **Einstellungen → Auf Updates prüfen**
+- manuell unter **Hauptmenü → Einstellungen → App-Update → Auf Updates prüfen**
 
 Ohne Internet bleibt die zuletzt mitgelieferte Version in der App.
 
@@ -61,3 +61,18 @@ npm start
 ```
 
 Browser: `http://localhost:4200`
+
+Die Versionsprüfung verwendet die veröffentlichte Datei `assets/version.json`.
+Ein Commit auf GitHub allein zählt noch nicht als verfügbares Update: Der Pages-Build muss erfolgreich veröffentlicht sein.
+Windows meldet fehlgeschlagene Prüfungen als Fehler und lädt Updates erst nach erfolgreicher Versionsprüfung.
+
+Sehr alte Installationen ohne funktionierende Updateprüfung benötigen einmalig eine neu gebaute EXE/APK.
+Änderungen an Electron oder der nativen Android-Startlogik können nicht durch ein Webupdate installiert werden.
+Die neue Updateoberfläche im Hauptmenü wird im Repository `stundenplan-11bguti` gepflegt und muss dort veröffentlicht werden.
+
+Updateprüfungen lokal testen:
+
+```sh
+node tests/update-service.cjs
+node tests/desktop-update.cjs
+```

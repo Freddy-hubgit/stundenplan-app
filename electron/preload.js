@@ -1,5 +1,5 @@
 const { contextBridge, ipcRenderer } = require("electron");
 
 contextBridge.exposeInMainWorld("stundenplanDesktop", {
-  checkUpdate: () => ipcRenderer.invoke("stundenplan:check-update"),
+  checkUpdate: (options) => ipcRenderer.invoke("stundenplan:check-update", options),
 });
