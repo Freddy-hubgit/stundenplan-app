@@ -8,7 +8,7 @@ async function scenario({ offline = false, navigationFails = false, background =
   class BrowserWindow {
     constructor() {
       this.events={};this.hidden=false;windows.push(this); this.url = ''; this.files = 0; this.loads = 0;
-      this.webContents = { getURL: () => this.url, setWindowOpenHandler: () => {} };
+      this.webContents = { on: () => {}, getURL: () => this.url, setWindowOpenHandler: () => {} };
     }
     async loadURL(url) { this.loads++; this.url = url; if (loadFails) throw Error('navigation failed'); }
     async loadFile() { this.files++; this.url = 'file:///local/index.html'; }
@@ -20,6 +20,8 @@ async function scenario({ offline = false, navigationFails = false, background =
       app: { getVersion:()=> '1.1.1', setAppUserModelId: () => {}, requestSingleInstanceLock: () => true, whenReady: () => ({ then: fn => ready.push(fn) }), on: (name,fn) => {appEvents[name]=fn;} },
       BrowserWindow, shell: {}, ipcMain: { handle: (name, fn) => { handlers[name] = fn; } }
     };
+    if (name === './program-updater') return { installProgramUpdater: () => ({}) };
+    if (name === 'electron-updater') return { autoUpdater: {} };
     if (name === './native-notifications') return { trustedFrame:()=>true, installNativeNotifications: () => ({keepRunning:()=>background}) };
     if (name === './web-update') return {
       getRemoteCommit: async () => { if (remoteFails) throw Error('offline'); return commit; },

@@ -1,6 +1,7 @@
 const { contextBridge, ipcRenderer } = require("electron");
 
 contextBridge.exposeInMainWorld("stundenplanDesktop", {
+  programUpdater: { version: 1, status: () => ipcRenderer.invoke('stundenplan:program-status'), check: () => ipcRenderer.invoke('stundenplan:program-check'), download: () => ipcRenderer.invoke('stundenplan:program-download'), install: () => ipcRenderer.invoke('stundenplan:program-install') },
   notifications: {
     version: 1,
     status: () => ipcRenderer.invoke('stundenplan:notifications-status'),

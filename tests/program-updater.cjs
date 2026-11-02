@@ -1,0 +1,24 @@
+const assert = require('node:assert/strict');
+const { EventEmitter } = require('node:events');
+const { installProgramUpdater } = require('../electron/program-updater');
+(async()=>{
+const updater = new EventEmitter(), handlers = {}, sender = { mainFrame: {} }, win = { webContents: sender };
+const event = { sender, senderFrame: sender.mainFrame };sender.mainFrame.url='https://freddy-hubgit.github.io/stundenplan-11bguti/';
+let downloads=0, installs=0, consent=0, prepared=0;
+updater.setFeedURL=feed=>assert.equal(feed.repo,'stundenplan-app');
+updater.checkForUpdates=async()=>updater.emit('update-available',{version:'1.3.0'});
+updater.downloadUpdate=async()=>{downloads++;updater.emit('download-progress',{percent:45});updater.emit('update-downloaded',{version:'1.3.0'});};
+updater.quitAndInstall=()=>{installs++;};
+installProgramUpdater({app:{isPackaged:true,getVersion:()=> '1.2.0'},ipcMain:{handle:(k,v)=>handlers[k]=v},autoUpdater:updater,dialog:{showMessageBox:async()=>({response:consent})},getWindow:()=>win,localIndex:'/app/index.html',platform:'win32',portable:false,prepareInstall:()=>{prepared++;return()=>prepared--;}});
+const call=action=>handlers['stundenplan:program-'+action](event);
+assert.throws(()=>handlers['stundenplan:program-install']({sender:{}}));
+await call('install');assert.equal(installs,0);
+assert.equal((await call('check')).phase,'available');
+assert.equal((await call('download')).phase,'downloaded');assert.equal(downloads,1);
+await call('download');assert.equal(downloads,1);
+await call('install');assert.equal(installs,0);
+consent=1;await call('install');assert.equal(installs,1);assert.equal(prepared,1);
+updater.emit('error',new Error('test'));assert.equal(prepared,0);assert.equal((await call('status')).phase,'downloaded');
+assert.equal(updater.autoInstallOnAppQuit,false);assert.equal(updater.autoDownload,false);
+console.log('PASS program updater: trusted IPC, explicit installation, progress, duplicate downloads and recovery');
+})().catch(e=>{console.error(e);process.exitCode=1;});

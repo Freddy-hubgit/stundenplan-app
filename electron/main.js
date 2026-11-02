@@ -6,6 +6,7 @@ const { getRemoteCommit, liveUrl, POLL_MS } = require("./web-update");
 let mainWindow = null;
 let nativeNotifications = null;
 let quitting = false;
+let installing = false;
 if (process.platform === "win32") app.setAppUserModelId("de.freddy.stundenplan11bguti");
 const primaryInstance = app.requestSingleInstanceLock();
 if (!primaryInstance) app.quit();
@@ -64,6 +65,8 @@ function createWindow() {
     return { action: "deny" };
   });
 
+  win.webContents.on("will-prevent-unload", event => { if (installing) event.preventDefault(); });
+
   win.on("close", event => { if (!quitting && nativeNotifications?.keepRunning()) { event.preventDefault(); win.hide(); } });
 
   win.on("closed", () => {
@@ -93,6 +96,7 @@ ipcMain.handle("stundenplan:check-update", async (_event, options) => {
 
 if (primaryInstance) app.whenReady().then(() => {
   nativeNotifications = installNativeNotifications({ app, ipcMain, Notification, Tray, Menu, nativeImage, getWindow: () => mainWindow, localIndex: localIndex() });
+  require('./program-updater').installProgramUpdater({ app, ipcMain, autoUpdater: require('electron-updater').autoUpdater, dialog: require('electron').dialog, getWindow: () => mainWindow, localIndex: localIndex(), prepareInstall: () => { quitting = true; installing = true; return () => { quitting = false; installing = false; }; } });
   createWindow();
   pollTimer = setInterval(() => {
     if (mainWindow) loadBestContent(mainWindow);
