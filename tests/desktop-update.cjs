@@ -2,23 +2,25 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
 const commit = 'b'.repeat(40);
-async function scenario({ offline = false, navigationFails = false } = {}) {
-  const handlers = {}, windows = [], ready = [];
+async function scenario({ offline = false, navigationFails = false, background = false } = {}) {
+  const handlers = {}, windows = [], ready = [], appEvents = {};
   let remoteFails = offline, loadFails = navigationFails;
   class BrowserWindow {
     constructor() {
-      windows.push(this); this.url = ''; this.files = 0; this.loads = 0;
+      this.events={};this.hidden=false;windows.push(this); this.url = ''; this.files = 0; this.loads = 0;
       this.webContents = { getURL: () => this.url, setWindowOpenHandler: () => {} };
     }
     async loadURL(url) { this.loads++; this.url = url; if (loadFails) throw Error('navigation failed'); }
     async loadFile() { this.files++; this.url = 'file:///local/index.html'; }
-    on() {}
+    hide() {this.hidden=true;}
+    on(name,fn) {this.events[name]=fn;}
   }
   const ctx = { require: name => {
     if (name === 'electron') return {
-      app: { whenReady: () => ({ then: fn => ready.push(fn) }), on: () => {} },
+      app: { setAppUserModelId: () => {}, requestSingleInstanceLock: () => true, whenReady: () => ({ then: fn => ready.push(fn) }), on: (name,fn) => {appEvents[name]=fn;} },
       BrowserWindow, shell: {}, ipcMain: { handle: (name, fn) => { handlers[name] = fn; } }
     };
+    if (name === './native-notifications') return { installNativeNotifications: () => ({keepRunning:()=>background}) };
     if (name === './web-update') return {
       getRemoteCommit: async () => { if (remoteFails) throw Error('offline'); return commit; },
       liveUrl: sha => 'https://example.test/?v=' + sha, POLL_MS: 300000
@@ -29,7 +31,7 @@ async function scenario({ offline = false, navigationFails = false } = {}) {
   ready[0]();
   await new Promise(resolve => setImmediate(resolve));
   return { window: windows[0], check: options => handlers['stundenplan:check-update']({}, options),
-    recover: () => { remoteFails = false; loadFails = false; } };
+    recover: () => { remoteFails = false; loadFails = false; }, close:()=>{let prevented=false;windows[0].events.close({preventDefault:()=>prevented=true});return prevented;},quit:()=>appEvents['before-quit']() };
 }
 (async () => {
   const offline = await scenario({ offline: true });
@@ -46,5 +48,6 @@ async function scenario({ offline = false, navigationFails = false } = {}) {
   assert.ok((await failed.check()).error);
   failed.recover();
   assert.equal((await failed.check()).updated, true, 'retry must apply failed version');
+  const backgroundApp=await scenario({background:true});assert(backgroundApp.close());assert(backgroundApp.window.hidden);backgroundApp.quit();assert(!backgroundApp.close());const normal=await scenario();assert(!normal.close());
   console.log('PASS desktop updates: offline fallback, check without navigation, failed-load recovery, truthful version state');
 })().catch(error => { console.error(error); process.exitCode = 1; });

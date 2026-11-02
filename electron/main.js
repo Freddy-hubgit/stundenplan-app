@@ -1,8 +1,16 @@
-const { app, BrowserWindow, shell, ipcMain } = require("electron");
+const { app, BrowserWindow, shell, ipcMain, Notification, Tray, Menu, nativeImage } = require("electron");
 const path = require("path");
+const { installNativeNotifications } = require("./native-notifications");
 const { getRemoteCommit, liveUrl, POLL_MS } = require("./web-update");
 
 let mainWindow = null;
+let nativeNotifications = null;
+let quitting = false;
+if (process.platform === "win32") app.setAppUserModelId("de.freddy.stundenplan11bguti");
+const primaryInstance = app.requestSingleInstanceLock();
+if (!primaryInstance) app.quit();
+app.on("before-quit", () => { quitting = true; });
+app.on("second-instance", () => { if (mainWindow) { if (mainWindow.isMinimized()) mainWindow.restore(); mainWindow.show(); mainWindow.focus(); } });
 let appliedCommit = null;
 let pollTimer = null;
 
@@ -43,6 +51,7 @@ function createWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
+      backgroundThrottling: false,
     },
   });
 
@@ -54,6 +63,8 @@ function createWindow() {
     shell.openExternal(url);
     return { action: "deny" };
   });
+
+  win.on("close", event => { if (!quitting && nativeNotifications?.keepRunning()) { event.preventDefault(); win.hide(); } });
 
   win.on("closed", () => {
     if (mainWindow === win) mainWindow = null;
@@ -75,7 +86,8 @@ ipcMain.handle("stundenplan:check-update", async (_event, options) => {
   }
 });
 
-app.whenReady().then(() => {
+if (primaryInstance) app.whenReady().then(() => {
+  nativeNotifications = installNativeNotifications({ app, ipcMain, Notification, Tray, Menu, nativeImage, getWindow: () => mainWindow, localIndex: localIndex() });
   createWindow();
   pollTimer = setInterval(() => {
     if (mainWindow) loadBestContent(mainWindow);
@@ -83,10 +95,11 @@ app.whenReady().then(() => {
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
+    else if (mainWindow) { mainWindow.show(); mainWindow.focus(); }
   });
 });
 
 app.on("window-all-closed", () => {
   if (pollTimer) clearInterval(pollTimer);
-  if (process.platform !== "darwin") app.quit();
+  if (process.platform !== "darwin" && !quitting) app.quit();
 });

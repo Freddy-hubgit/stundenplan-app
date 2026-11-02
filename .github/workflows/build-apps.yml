@@ -24,6 +24,8 @@ jobs:
         run: node tests/update-service.cjs
       - name: Test desktop recovery
         run: node tests/desktop-update.cjs
+      - name: Test native notifications
+        run: node tests/native-notifications.cjs
       - run: npm run dist:win
       - uses: actions/upload-artifact@v4
         with:
