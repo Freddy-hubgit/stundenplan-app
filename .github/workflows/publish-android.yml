@@ -1,0 +1,56 @@
+name: Publish Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["android-release-1.2.1"]
+
+permissions:
+  contents: read
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - run: npm ci --legacy-peer-deps
+      - run: npm run cap:sync
+      - run: chmod +x android/gradlew
+      - name: Build Android APK
+        run: ./gradlew assembleDebug
+        working-directory: android
+      - name: Verify APK signature, alignment and version
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk=android/app/build/outputs/apk/debug/app-debug.apk
+          build_tools=$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)
+          "$build_tools/apksigner" verify --verbose --print-certs "$apk"
+          "$build_tools/zipalign" -c 4 "$apk"
+          "$build_tools/aapt" dump badging "$apk" > apk-badging.txt
+          grep -F "package: name='de.freddy.stundenplan11bguti' versionCode='2' versionName='1.2.1'" apk-badging.txt
+          mkdir -p release/android
+          cp "$apk" release/android/Stundenplan-Android-1.2.1.apk
+          cd release/android
+          sha256sum Stundenplan-Android-1.2.1.apk > SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-apk-1.2.1
+          path: release/android/*
+          if-no-files-found: error
+      - name: Publish Android release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          gh release create android-v1.2.1 release/android/Stundenplan-Android-1.2.1.apk release/android/SHA256SUMS.txt --target "$GITHUB_SHA" --title "Stundenplan Android 1.2.1" --notes-file .github/android-release-notes.md --latest=false
